@@ -1,0 +1,9 @@
+0 connect
+0 clear
+1 connect
+1 clear
+0 get hello
+0 set hello 2
+0 cas hello 2 3
+0 set hello 4
+0 cas hello 2 3

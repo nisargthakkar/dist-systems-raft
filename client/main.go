@@ -9,7 +9,7 @@ import (
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"github.com/nyu-distributed-systems-fa18/starter-code-lab2/pb"
+	"github.com/nyu-distributed-systems-fa18/lab-2-raft-nisargthakkar/pb"
 )
 
 func usage() {
@@ -42,6 +42,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not clear")
 	}
+	log.Printf("Got response %v", res)
 
 	// Put setting hello -> 1
 	putReq := &pb.KeyValue{Key: "hello", Value: "1"}
