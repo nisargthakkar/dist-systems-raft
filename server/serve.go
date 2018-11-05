@@ -167,6 +167,8 @@ func beginRaft(currentTerm int64, commandLog []*pb.Entry, responseLog []InputCha
 	commandLog = append(commandLog, entry)
 	responseLog = append(responseLog, op)
 
+	appendResponseChan <- AppendResponse{ret: &pb.AppendEntriesRet{Term: currentTerm, Success: true}, err: nil, peer: id, messageIndex: int64(len(commandLog)) - 1 + LOG_INDEXING}
+
 	for p, c := range *peerClients {
 		appendEntriesForClient(nextIndex[p], commandLog, currentTerm, id, commitIndex, c, p, appendResponseChan)
 	}
@@ -192,8 +194,8 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 		log.Printf("Connected to %v", peer)
 	}
 
-	appendResponseChan := make(chan AppendResponse)
-	voteResponseChan := make(chan VoteResponse)
+	appendResponseChan := make(chan AppendResponse, 1)
+	voteResponseChan := make(chan VoteResponse, 1)
 
 	const (
 		FOLLOWER  = iota
@@ -234,15 +236,15 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 				continue
 			}
 
+			log.Printf("Requesting Votes for term: %d", currentTerm)
+
 			currentRole = CANDIDATE
 			currentTerm = currentTerm + 1
 			voteGrants = make(map[string]bool)
 			currentLeader = ""
 
 			votedFor = id
-			voteGrants[id] = true
-
-			log.Printf("Requesting Votes for term: %d", currentTerm)
+			voteResponseChan <- VoteResponse{ret: &pb.RequestVoteRet{Term: currentTerm, VoteGranted: true}, err: nil, peer: id, term: currentTerm}
 
 			prevLogIndex := int64(len(commandLog)) - 1 + LOG_INDEXING
 			prevLogTerm := int64(-1 + LOG_INDEXING)
@@ -441,12 +443,14 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 				heartbeatTimer.Reset(HEARTBEAT_TIMEOUT)
 			} else {
 				// Success: client has appended
-				if ar.messageIndex <= matchIndex[ar.peer] {
-					continue
-				}
+				if ar.peer != id {
+					if ar.messageIndex <= matchIndex[ar.peer] {
+						continue
+					}
 
-				matchIndex[ar.peer] = ar.messageIndex
-				nextIndex[ar.peer] = ar.messageIndex + 1
+					matchIndex[ar.peer] = ar.messageIndex
+					nextIndex[ar.peer] = ar.messageIndex + 1
+				}
 
 				commitIndex = getMajorityAgreementIndex(&matchIndex, int64(len(commandLog))-1+LOG_INDEXING)
 
