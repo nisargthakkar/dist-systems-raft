@@ -323,7 +323,8 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 					for commitIndex > lastApplied {
 						lastApplied = lastApplied + 1
 						log.Printf("Applied command to store Op: %v Args: %v", commandLog[lastApplied-LOG_INDEXING].Cmd.Operation, commandLog[lastApplied-LOG_INDEXING].Cmd.Arg)
-						go s.HandleCommand(InputChannelType{command: *commandLog[lastApplied-LOG_INDEXING].Cmd, response: dummyResponseChannel})
+						s.HandleCommand(InputChannelType{command: *commandLog[lastApplied-LOG_INDEXING].Cmd, response: dummyResponseChannel})
+						<-dummyResponseChannel
 					}
 				}
 
@@ -453,7 +454,7 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 				for commitIndex > lastApplied && commandLog[commitIndex-LOG_INDEXING].Term == currentTerm {
 					lastApplied = lastApplied + 1
 					log.Printf("Applied command to store Op: %v Args: %v", commandLog[lastApplied-LOG_INDEXING].Cmd.Operation, commandLog[lastApplied-LOG_INDEXING].Cmd.Arg)
-					go s.HandleCommand(responseLog[lastApplied-LOG_INDEXING])
+					s.HandleCommand(responseLog[lastApplied-LOG_INDEXING])
 				}
 			}
 		case <-heartbeatTimer.C:
