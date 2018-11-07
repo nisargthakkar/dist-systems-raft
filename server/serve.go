@@ -18,6 +18,7 @@ import (
 const TIME_MULTIPLIER = 1
 const LOG_INDEXING int64 = 1 // TODO: Raft log Index and log term are 0 indexed or 1 indexed
 const HEARTBEAT_TIMEOUT = 200 * TIME_MULTIPLIER * time.Millisecond
+const AVG_ELECTION_TIME = 2 * TIME_MULTIPLIER * time.Second
 
 // Messages that can be passed from the Raft RPC server to the main loop for AppendEntries
 type AppendEntriesInput struct {
@@ -271,6 +272,7 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 				// TODO: redirect client to leader
 				go func(op InputChannelType) {
 					for currentLeader == "" {
+						time.Sleep(AVG_ELECTION_TIME)
 					}
 					if currentLeader == id {
 						commandLog, responseLog = beginRaft(currentTerm, commandLog, responseLog, op, nextIndex, id, commitIndex, &peerClients, appendResponseChan)
