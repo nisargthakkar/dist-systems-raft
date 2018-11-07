@@ -230,7 +230,7 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 		select {
 		case <-timer.C:
 			// The timer went off.
-			// log.Printf("Election Timeout")
+			log.Printf("Election Timeout")
 
 			if currentRole == LEADER {
 				continue
@@ -287,7 +287,7 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 			heartbeatTimer.Reset(HEARTBEAT_TIMEOUT)
 		case ae := <-raft.AppendChan:
 			// We received an AppendEntries request from a Raft peer
-			// log.Printf("Received append entry from %v", ae.arg.LeaderID)
+			log.Printf("Received append entry from %v", ae.arg.LeaderID)
 			// Reply false if term < currentTerm
 			if ae.arg.Term < currentTerm {
 				// Reply false
@@ -346,7 +346,7 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 			restartTimer(timer, r)
 		case vr := <-raft.VoteChan:
 			// We received a RequestVote RPC from a raft peer
-			// log.Printf("Received vote request from %v", vr.arg.CandidateID)
+			log.Printf("Received vote request from %v", vr.arg.CandidateID)
 			if vr.arg.Term < currentTerm {
 				// Reply false if term < currentTerm
 				vr.response <- pb.RequestVoteRet{Term: currentTerm, VoteGranted: false}
@@ -367,10 +367,10 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 			// We received a response to a previous vote request.
 			if vr.err != nil {
 				// Do not do Fatalf here since the peer might be gone but we should survive.
-				// log.Printf("Error calling RPC %v", vr.err)
+				log.Printf("Error calling RPC %v", vr.err)
 			} else {
-				// log.Printf("Got response to vote request from %v", vr.peer)
-				// log.Printf("Peers %s granted %v term %v", vr.peer, vr.ret.VoteGranted, vr.ret.Term)
+				log.Printf("Got response to vote request from %v", vr.peer)
+				log.Printf("Peers %s granted %v term %v", vr.peer, vr.ret.VoteGranted, vr.ret.Term)
 				if vr.ret.Term > currentTerm {
 					voteGrants = make(map[string]bool)
 					currentRole = FOLLOWER
@@ -379,7 +379,8 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 					currentLeader = ""
 					// Restarting Timer because no longer a candidate
 					restartTimer(timer, r)
-				} else if currentRole != CANDIDATE {
+				} else if vr.ret.Term < currentTerm || currentRole != CANDIDATE {
+					// Ignore if we receive a reply to an older request or if no longer a candidate
 					continue
 				} else if vr.ret.VoteGranted == true && vr.term == currentTerm {
 					voteGrants[vr.peer] = true
@@ -410,11 +411,11 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 			}
 		case ar := <-appendResponseChan:
 			// We received a response to a previous AppendEntries RPC call
-			// log.Printf("Got append entries response from %v", ar.peer)
+			log.Printf("Got append entries response from %v", ar.peer)
 
 			if ar.err != nil {
 				// Do not do Fatalf here since the peer might be gone but we should survive.
-				// log.Printf("Error calling RPC %v", ar.err)
+				log.Printf("Error calling RPC %v", ar.err)
 			} else if ar.ret.Term != currentTerm {
 				currentRole = FOLLOWER
 				currentTerm = ar.ret.Term
@@ -463,7 +464,7 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 			}
 		case <-heartbeatTimer.C:
 			// The timer went off.
-			// log.Printf("Heartbeat Timeout")
+			log.Printf("Heartbeat Timeout")
 
 			if currentRole != LEADER {
 				continue
