@@ -315,9 +315,16 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 				// Append any new entries not already in the log
 				// Empty all elements in commandLog after PrevLogIndex
 
-				commandLog = commandLog[:ae.arg.PrevLogIndex-LOG_INDEXING+1]
-				for i := 0; i < len(ae.arg.Entries); i = i + 1 {
-					commandLog = append(commandLog, ae.arg.Entries[i])
+				j := 0
+				for i := ae.arg.PrevLogIndex - LOG_INDEXING + 1; i < int64(len(commandLog)) && j < len(ae.arg.Entries); i, j = i+1, j+1 {
+					if commandLog[i].Term != ae.arg.Entries[j].Term {
+						commandLog = commandLog[:i]
+						break
+					}
+				}
+
+				for ; j < len(ae.arg.Entries); j++ {
+					commandLog = append(commandLog, ae.arg.Entries[j])
 				}
 
 				// If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry)
