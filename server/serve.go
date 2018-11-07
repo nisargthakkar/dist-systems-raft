@@ -359,6 +359,13 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 					vr.response <- pb.RequestVoteRet{Term: currentTerm, VoteGranted: true}
 					// This will also take care of any pesky timeouts that happened while processing the operation.
 					restartTimer(timer, r)
+				} else if vr.arg.Term > currentTerm {
+					currentTerm = vr.arg.Term
+					votedFor = ""
+					currentRole = FOLLOWER
+					vr.response <- pb.RequestVoteRet{Term: currentTerm, VoteGranted: false}
+					// This will also take care of any pesky timeouts that happened while processing the operation.
+					restartTimer(timer, r)
 				} else {
 					vr.response <- pb.RequestVoteRet{Term: currentTerm, VoteGranted: false}
 				}
