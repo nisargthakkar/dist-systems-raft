@@ -208,7 +208,7 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 
 	dummyResponseChannel := make(chan pb.Result, 1)
 
-	var currentTerm int64 = 0
+	currentTerm := int64(0)
 	votedFor := ""
 	currentLeader := ""
 	commitIndex := -1 + LOG_INDEXING
@@ -336,6 +336,7 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 			}
 
 			if ae.arg.Term > currentTerm {
+				// If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower
 				currentLeader = ae.arg.LeaderID
 				currentTerm = ae.arg.Term
 				currentRole = FOLLOWER
@@ -360,6 +361,7 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 					// This will also take care of any pesky timeouts that happened while processing the operation.
 					restartTimer(timer, r)
 				} else if vr.arg.Term > currentTerm {
+					// If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower
 					currentTerm = vr.arg.Term
 					votedFor = ""
 					currentRole = FOLLOWER
@@ -379,6 +381,7 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 				log.Printf("Got response to vote request from %v", vr.peer)
 				log.Printf("Peers %s granted %v term %v", vr.peer, vr.ret.VoteGranted, vr.ret.Term)
 				if vr.ret.Term > currentTerm {
+					// If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower
 					voteGrants = make(map[string]bool)
 					currentRole = FOLLOWER
 					votedFor = ""
@@ -423,14 +426,16 @@ func serve(s *KVStore, r *rand.Rand, peers *arrayPeers, id string, port int) {
 			if ar.err != nil {
 				// Do not do Fatalf here since the peer might be gone but we should survive.
 				log.Printf("Error calling RPC %v", ar.err)
-			} else if ar.ret.Term != currentTerm {
+			} else if ar.ret.Term > currentTerm {
+				// If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower
 				currentRole = FOLLOWER
 				currentTerm = ar.ret.Term
 				votedFor = ""
 				currentLeader = ""
 				// Restarting Timer because no longer a leader
 				restartTimer(timer, r)
-			} else if currentRole != LEADER {
+			} else if ar.ret.Term < currentTerm || currentRole != LEADER {
+				// Ignore if we receive a reply to an older request or if no longer a leader
 				continue
 			} else if !ar.ret.Success {
 				if nextIndex[ar.peer]-LOG_INDEXING > 0 {
